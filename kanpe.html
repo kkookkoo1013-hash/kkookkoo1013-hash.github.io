@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>カンペ</title>
+<meta name="theme-color" content="#14161a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="カンペ">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2314161a'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='%236cc1ad' font-family='sans-serif' font-weight='700'%3EK%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#14161a; --panel:#1d2026; --panel-2:#23272f; --line:#2f343d;
+    --text:#f5f3ee; --muted:#8a9099; --accent:#6cc1ad; --accent-dim:#3c5a54;
+    --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0; height:100%;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP","Meiryo",sans-serif;
+    height:100vh; height:100dvh; overflow:hidden; touch-action:manipulation; position:relative;
+  }
+
+  .stage{position:absolute; inset:0; overflow:hidden; cursor:pointer; -webkit-tap-highlight-color:transparent;}
+  .stage.mode-h{-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 88%,transparent 100%); mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 88%,transparent 100%);}
+  .stage.mode-v{-webkit-mask-image:linear-gradient(180deg,transparent 0,#000 14%,#000 86%,transparent 100%); mask-image:linear-gradient(180deg,transparent 0,#000 14%,#000 86%,transparent 100%);}
+  .stage.mirror{transform:scaleX(-1);}
+  .crawl{position:absolute; will-change:transform; font-weight:700;}
+  .mode-h .crawl{top:50%; left:0; white-space:nowrap; transform:translate(0,-50%); font-size:64px; line-height:1.2;}
+  .mode-h .crawl .sep{color:var(--accent); opacity:.6; margin:0 .6em; font-weight:400;}
+  .mode-v .crawl{top:0; left:50%; width:min(86%,900px); transform:translate(-50%,0); text-align:center; font-size:48px; line-height:1.5;}
+  .mode-v .crawl .para{margin:0 0 .8em 0;}
+  .focusline{position:absolute; pointer-events:none; opacity:.5;}
+  .mode-h .focusline{top:0; bottom:0; left:50%; width:1px; background:linear-gradient(180deg,transparent,var(--accent-dim) 30%,var(--accent-dim) 70%,transparent);}
+  .mode-v .focusline{left:0; right:0; top:42%; height:1px; background:linear-gradient(90deg,transparent,var(--accent-dim) 30%,var(--accent-dim) 70%,transparent);}
+  .stage-empty{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:18px; pointer-events:none; padding:0 24px; text-align:center;}
+
+  .topbar{position:absolute; top:0; left:0; right:0; z-index:5; display:flex; align-items:center; gap:10px; padding:calc(10px + var(--safe-t)) 16px 10px; background:linear-gradient(180deg,rgba(20,22,26,.85),rgba(20,22,26,0)); transition:opacity .25s, transform .25s;}
+  .topbar h1{font-size:15px; font-weight:700; letter-spacing:.08em; margin:0;}
+  .topbar .sub{font-size:11px; color:var(--muted);}
+  .topbar .spacer{flex:1 1 auto;}
+
+  .editor{position:absolute; top:0; left:0; right:0; z-index:8; padding:calc(14px + var(--safe-t)) 16px 14px; background:var(--panel); border-bottom:1px solid var(--line); transform:translateY(-110%); transition:transform .3s ease; box-shadow:0 12px 30px rgba(0,0,0,.4);}
+  .editor.open{transform:translateY(0);}
+  textarea{width:100%; height:34vh; max-height:240px; min-height:90px; resize:none; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-family:inherit; font-size:15px; line-height:1.7; outline:none;}
+  textarea:focus{border-color:var(--accent-dim);}
+  textarea::placeholder{color:var(--muted);}
+  .editor .row{display:flex; align-items:center; gap:10px; margin-top:10px;}
+  .editor .hint{font-size:12px; color:var(--muted);}
+
+  .controls{position:absolute; left:0; right:0; bottom:0; z-index:5; display:flex; align-items:center; justify-content:center; gap:12px; padding:10px 16px calc(10px + var(--safe-b)); background:linear-gradient(0deg,rgba(20,22,26,.92),rgba(20,22,26,0)); transition:opacity .25s, transform .25s;}
+
+  .chrome-hidden .topbar, .chrome-hidden .controls{opacity:0; pointer-events:none;}
+  .chrome-hidden .topbar{transform:translateY(-8px);}
+  .chrome-hidden .controls{transform:translateY(8px);}
+  .settings-open .controls{opacity:0; pointer-events:none;}
+
+  button{font-family:inherit; cursor:pointer; border:1px solid var(--line); background:var(--panel-2); color:var(--text); border-radius:9px; padding:11px 15px; font-size:14px; flex:0 0 auto; transition:border-color .15s, background .15s;}
+  button:hover{border-color:var(--accent-dim);}
+  button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  button.primary{background:var(--accent); color:#10221d; border-color:var(--accent); font-weight:700; min-width:92px;}
+  button.primary:hover{background:#7fcdba;}
+  button.toggle.on{border-color:var(--accent); color:var(--accent);}
+  button.ghost{background:rgba(35,39,47,.7); backdrop-filter:blur(4px);}
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; flex:0 0 auto;}
+  .seg button{border:none; border-radius:0; background:var(--panel-2);}
+  .seg button + button{border-left:1px solid var(--line);}
+  .seg button.on{background:var(--accent); color:#10221d; font-weight:700;}
+
+  .sheet{position:absolute; left:0; right:0; bottom:0; z-index:9; padding:18px 18px calc(18px + var(--safe-b)); background:var(--panel); border-top:1px solid var(--line); box-shadow:0 -12px 30px rgba(0,0,0,.4); transform:translateY(110%); transition:transform .3s ease;}
+  .sheet.open{transform:translateY(0);}
+  .sheet .sheet-head{display:flex; align-items:center; margin-bottom:14px;}
+  .sheet .sheet-head h2{font-size:14px; font-weight:700; letter-spacing:.06em; margin:0;}
+  .sheet .sheet-head .spacer{flex:1 1 auto;}
+  .ctl{display:flex; align-items:center; gap:14px; margin:14px 0;}
+  .ctl label{min-width:64px; font-size:13px; color:var(--muted);}
+  .ctl .val{min-width:42px; text-align:right; font-size:13px; color:var(--text); font-variant-numeric:tabular-nums;}
+  input[type=range]{-webkit-appearance:none; appearance:none; flex:1 1 auto; height:6px; border-radius:3px; background:var(--line); outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:26px; height:26px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.4);}
+  input[type=range]::-moz-range-thumb{width:26px; height:26px; border:none; border-radius:50%; background:var(--accent); cursor:pointer;}
+  .sheet .toggles{display:flex; gap:12px; margin-top:16px;}
+
+  @media (max-height:480px){
+    .mode-h .crawl{font-size:52px;}
+    .mode-v .crawl{font-size:34px;}
+    textarea{height:40vh;}
+    .sheet{padding-top:12px;}
+    .ctl{margin:10px 0;}
+  }
+</style>
+</head>
+<body>
+
+  <main class="stage mode-h" id="stage">
+    <div class="focusline"></div>
+    <div class="crawl" id="crawl"></div>
+    <div class="stage-empty" id="emptyMsg">「台本」から原稿を入れて再生してください</div>
+  </main>
+
+  <div class="topbar" id="topbar">
+    <h1>カンペ</h1>
+    <span class="sub">流れる台本ビューワー</span>
+    <span class="spacer"></span>
+    <button class="ghost" id="editBtn">台本</button>
+  </div>
+
+  <section class="editor" id="editor">
+    <textarea id="script" placeholder="ここに台本を貼り付けてください。改行は段落の区切りとして扱われます。"></textarea>
+    <div class="row">
+      <button class="primary" id="loadBtn">この台本で再生</button>
+      <button class="ghost" id="closeEdit">閉じる</button>
+      <span class="hint">画面タップでバーの表示／非表示</span>
+    </div>
+  </section>
+
+  <div class="controls" id="controls">
+    <button class="primary" id="playBtn">再生</button>
+    <button id="restartBtn">最初から</button>
+    <div class="seg" id="modeSeg">
+      <button data-mode="h" class="on">横</button>
+      <button data-mode="v">縦</button>
+    </div>
+    <button id="setBtn">速さ・文字</button>
+  </div>
+
+  <section class="sheet" id="sheet">
+    <div class="sheet-head">
+      <h2>速さ と 文字サイズ</h2>
+      <span class="spacer"></span>
+      <button class="ghost" id="closeSheet">閉じる</button>
+    </div>
+    <div class="ctl">
+      <label>速さ</label>
+      <input type="range" id="speed" min="30" max="400" value="130" step="5">
+      <span class="val" id="speedVal">130</span>
+    </div>
+    <div class="ctl">
+      <label>文字サイズ</label>
+      <input type="range" id="size" min="24" max="140" value="64" step="2">
+      <span class="val" id="sizeVal">64</span>
+    </div>
+    <div class="toggles">
+      <button class="toggle" id="mirrorBtn">左右反転</button>
+      <button class="toggle on" id="loopBtn">繰り返し</button>
+    </div>
+  </section>
+
+<script>
+(function(){
+  const body=document.body;
+  const stage=document.getElementById('stage'), crawl=document.getElementById('crawl');
+  const editor=document.getElementById('editor'), scriptEl=document.getElementById('script'), emptyMsg=document.getElementById('emptyMsg');
+  const sheet=document.getElementById('sheet');
+  const playBtn=document.getElementById('playBtn'), loadBtn=document.getElementById('loadBtn'), closeEdit=document.getElementById('closeEdit');
+  const restartBtn=document.getElementById('restartBtn'), editBtn=document.getElementById('editBtn'), modeSeg=document.getElementById('modeSeg');
+  const setBtn=document.getElementById('setBtn'), closeSheet=document.getElementById('closeSheet');
+  const mirrorBtn=document.getElementById('mirrorBtn'), loopBtn=document.getElementById('loopBtn');
+  const speedEl=document.getElementById('speed'), sizeEl=document.getElementById('size');
+  const speedVal=document.getElementById('speedVal'), sizeVal=document.getElementById('sizeVal');
+
+  let mode='h', pos=0, extent=0, speed=+speedEl.value, playing=false, loop=true, lastTime=null, parts=[], hideTimer=null;
+  const sizeByMode={h:64, v:48};
+
+  function showChrome(){ clearTimeout(hideTimer); body.classList.remove('chrome-hidden'); }
+  function hideChrome(){ clearTimeout(hideTimer); if(crawl.children.length) body.classList.add('chrome-hidden'); }
+  function toggleChrome(){ if(body.classList.contains('chrome-hidden')) showChrome(); else hideChrome(); }
+  function autoHideSoon(){ clearTimeout(hideTimer); hideTimer=setTimeout(()=>{ if(playing) hideChrome(); },1500); }
+
+  function parseScript(){ parts=scriptEl.value.replace(/\r/g,'').split('\n').map(s=>s.trim()).filter(Boolean); return parts.length>0; }
+  function render(){
+    crawl.innerHTML='';
+    if(parts.length===0){ emptyMsg.style.display='flex'; return; }
+    emptyMsg.style.display='none';
+    if(mode==='h'){
+      parts.forEach((p,i)=>{ const s=document.createElement('span'); s.textContent=p; crawl.appendChild(s);
+        if(i<parts.length-1){ const sep=document.createElement('span'); sep.className='sep'; sep.textContent='／'; crawl.appendChild(sep); }});
+    } else { parts.forEach(p=>{ const d=document.createElement('div'); d.className='para'; d.textContent=p; crawl.appendChild(d); }); }
+    crawl.style.fontSize=sizeEl.value+'px';
+  }
+  function reset(){ if(mode==='h'){ pos=stage.clientWidth; extent=crawl.offsetWidth; } else { pos=stage.clientHeight; extent=crawl.offsetHeight; } applyTransform(); }
+  function applyTransform(){ crawl.style.transform=(mode==='h')?`translate(${pos}px,-50%)`:`translate(-50%,${pos}px)`; }
+  function setPlaying(v){ playing=v; playBtn.textContent=v?'一時停止':'再生'; if(v) autoHideSoon(); else showChrome(); }
+  function loadAndPlay(){ if(!parseScript()){ render(); return; } render(); editor.classList.remove('open'); reset(); setPlaying(true); }
+  function setMode(m){ if(m===mode) return; sizeByMode[mode]=+sizeEl.value; mode=m;
+    stage.classList.toggle('mode-h',mode==='h'); stage.classList.toggle('mode-v',mode==='v');
+    [...modeSeg.children].forEach(b=>b.classList.toggle('on',b.dataset.mode===mode));
+    sizeEl.value=sizeByMode[mode]; sizeVal.textContent=sizeEl.value; render(); reset(); }
+
+  function openSheet(){ sheet.classList.add('open'); body.classList.add('settings-open'); showChrome(); }
+  function closeSheetFn(){ sheet.classList.remove('open'); body.classList.remove('settings-open'); }
+
+  function frame(t){ if(lastTime===null) lastTime=t; const dt=(t-lastTime)/1000; lastTime=t;
+    if(playing && extent>0){ pos-=speed*dt;
+      if(pos<-extent){ if(loop){ pos=(mode==='h')?stage.clientWidth:stage.clientHeight; } else setPlaying(false); }
+      applyTransform(); }
+    requestAnimationFrame(frame); }
+  requestAnimationFrame(frame);
+
+  loadBtn.addEventListener('click', loadAndPlay);
+  closeEdit.addEventListener('click', ()=>{ editor.classList.remove('open'); showChrome(); });
+  editBtn.addEventListener('click', ()=>{ editor.classList.toggle('open'); setPlaying(false); showChrome(); });
+  playBtn.addEventListener('click', e=>{ e.stopPropagation(); if(crawl.children.length===0){loadAndPlay();return;} setPlaying(!playing); });
+  restartBtn.addEventListener('click', e=>{ e.stopPropagation(); reset(); setPlaying(true); });
+
+  setBtn.addEventListener('click', e=>{ e.stopPropagation(); openSheet(); });
+  closeSheet.addEventListener('click', e=>{ e.stopPropagation(); closeSheetFn(); });
+
+  // 画面タップ：バーの表示／非表示
+  stage.addEventListener('click', ()=>{
+    if(sheet.classList.contains('open')){ closeSheetFn(); return; }
+    if(editor.classList.contains('open')){ editor.classList.remove('open'); return; }
+    toggleChrome();
+  });
+
+  modeSeg.addEventListener('click', e=>{ const b=e.target.closest('button'); if(b){ setMode(b.dataset.mode); }});
+  speedEl.addEventListener('input', ()=>{ speed=+speedEl.value; speedVal.textContent=speedEl.value; });
+  sizeEl.addEventListener('input', ()=>{ crawl.style.fontSize=sizeEl.value+'px'; sizeVal.textContent=sizeEl.value; extent=(mode==='h')?crawl.offsetWidth:crawl.offsetHeight; });
+  mirrorBtn.addEventListener('click', e=>{ e.stopPropagation(); stage.classList.toggle('mirror'); mirrorBtn.classList.toggle('on'); });
+  loopBtn.addEventListener('click', e=>{ e.stopPropagation(); loop=!loop; loopBtn.classList.toggle('on',loop); });
+
+  document.addEventListener('keydown', e=>{
+    if(e.target===scriptEl) return;
+    if(e.code==='Space'){ e.preventDefault(); if(crawl.children.length===0){loadAndPlay();} else setPlaying(!playing); }
+    else if(e.code==='ArrowRight'){ speedEl.value=Math.min(400,+speedEl.value+10); speed=+speedEl.value; speedVal.textContent=speedEl.value; }
+    else if(e.code==='ArrowLeft'){ speedEl.value=Math.max(30,+speedEl.value-10); speed=+speedEl.value; speedVal.textContent=speedEl.value; }
+  });
+
+  window.addEventListener('resize', ()=>{ extent=(mode==='h')?crawl.offsetWidth:crawl.offsetHeight; });
+  window.addEventListener('orientationchange', ()=>{ setTimeout(reset,300); });
+
+  crawl.style.fontSize=sizeEl.value+'px';
+  showChrome();
+})();
+</script>
+</body>
+</html>
